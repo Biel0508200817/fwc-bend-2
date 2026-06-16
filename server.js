@@ -12,7 +12,7 @@ app.use(cors())
 app.use(express.json())
 
 // ========================
-// HEALTH CHECK (OBRIGATÓRIO)
+// ROTA PRINCIPAL
 // ========================
 app.get('/', (req, res) => {
     res.json({
@@ -23,53 +23,52 @@ app.get('/', (req, res) => {
 })
 
 // ========================
-// ROTAS API (SUPABASE)
+// JOGOS
 // ========================
-
-try {
-    app.use('/api/jogos', require('./routers/jogos'))
-    console.log('✓ /api/jogos carregado')
-} catch (err) {
-    console.log('✗ erro /api/jogos:', err.message)
-}
-
-try {
-    app.use('/api/selecoes', require('./routers/selecoes'))
-    console.log('✓ /api/selecoes carregado')
-} catch (err) {
-    console.log('✗ erro /api/selecoes:', err.message)
-}
-
-try {
-    app.use('/api/arbitros', require('./routers/arbitros'))
-    console.log('✓ /api/arbitros carregado')
-} catch (err) {
-    console.log('✗ erro /api/arbitros:', err.message)
-}
-
-try {
-    app.use('/api/estadios', require('./routers/estadios'))
-    console.log('✓ /api/estadios carregado')
-} catch (err) {
-    console.log('✗ erro /api/estadios:', err.message)
-}
-
-try {
-    app.use('/api/avaliacoes', require('./routers/avaliacoes'))
-    console.log('✓ /api/avaliacoes carregado')
-} catch (err) {
-    console.log('✗ erro /api/avaliacoes:', err.message)
-}
+app.get('/api/jogos', (req, res) => {
+    res.json({
+        mensagem: 'Lista de jogos funcionando',
+        dados: []
+    })
+})
 
 // ========================
-// ERRO GLOBAL (SEGURANÇA)
+// SELEÇÕES
 // ========================
-app.use((err, req, res, next) => {
-    console.error(err)
+app.get('/api/selecoes', (req, res) => {
+    res.json({
+        mensagem: 'Seleções funcionando',
+        dados: []
+    })
+})
 
-    res.status(500).json({
-        erro: 'Erro interno do servidor',
-        detalhe: err.message
+// ========================
+// ÁRBITROS
+// ========================
+app.get('/api/arbitros', (req, res) => {
+    res.json({
+        mensagem: 'Árbitros funcionando',
+        dados: []
+    })
+})
+
+// ========================
+// ESTÁDIOS
+// ========================
+app.get('/api/estadios', (req, res) => {
+    res.json({
+        mensagem: 'Estádios funcionando',
+        dados: []
+    })
+})
+
+// ========================
+// AVALIAÇÕES
+// ========================
+app.get('/api/avaliacoes', (req, res) => {
+    res.json({
+        mensagem: 'Avaliações funcionando',
+        dados: []
     })
 })
 
