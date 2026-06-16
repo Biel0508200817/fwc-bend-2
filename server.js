@@ -5,11 +5,15 @@ const cors = require('cors')
 
 const app = express()
 
-// Middlewares básicos
+// ========================
+// MIDDLEWARES BÁSICOS
+// ========================
 app.use(cors())
 app.use(express.json())
 
-// Middleware: logger (seguro)
+// ========================
+// LOGGER (opcional e seguro)
+// ========================
 try {
     const logger = require('./middleware/logger')
     app.use(logger)
@@ -18,7 +22,9 @@ try {
     console.log('⚠ logger não carregado:', err.message)
 }
 
+// ========================
 // ROTA PRINCIPAL
+// ========================
 app.get('/', (req, res) => {
     res.status(200).json({
         projeto: 'Central do Apito',
@@ -28,25 +34,40 @@ app.get('/', (req, res) => {
 })
 
 // ========================
-// ROTAS (com proteção contra crash)
+// FUNÇÃO SEGURA DE ROTAS
 // ========================
-
 function safeUse(path, file) {
     try {
-        app.use(path, require(file))
+        const route = require(file)
+        app.use(path, route)
         console.log(`✓ rota ${path} carregada`)
     } catch (err) {
         console.log(`✗ erro na rota ${path}:`, err.message)
     }
 }
 
+// ========================
+// ROTAS DA API
+// ========================
 safeUse('/selecoes', './routers/selecoes')
 safeUse('/arbitros', './routers/arbitros')
 safeUse('/estadios', './routers/estadios')
 safeUse('/jogos', './routers/jogos')
 safeUse('/avaliacoes', './routers/avaliacoes')
 
-// Middleware de erro (seguro)
+// ========================
+// TESTE DIRETO (debug)
+// ========================
+app.get('/jogos-test', (req, res) => {
+    res.json({
+        ok: true,
+        mensagem: 'rota /jogos-test funcionando'
+    })
+})
+
+// ========================
+// ERROR HANDLER
+// ========================
 try {
     const errorHandler = require('./middleware/errorHandler')
     app.use(errorHandler)
@@ -61,5 +82,7 @@ try {
     })
 }
 
-// EXPORT PARA VERCEL (OBRIGATÓRIO)
+// ========================
+// EXPORT VERCEL
+// ========================
 module.exports = app
