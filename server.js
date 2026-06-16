@@ -11,60 +11,61 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 
-// Logger opcional
-try {
-    const logger = require('./middleware/logger')
-    app.use(logger)
-    console.log('✓ logger carregado')
-} catch (err) {
-    console.log('⚠ logger não carregado')
-}
-
 // ========================
-// ROTA PRINCIPAL
+// HEALTH CHECK (OBRIGATÓRIO)
 // ========================
 app.get('/', (req, res) => {
-    res.status(200).json({
-        projeto: 'Central do Apito',
+    res.json({
         status: 'online',
+        projeto: 'Central do Apito',
         versao: '1.0.0'
     })
 })
 
 // ========================
-// ROTAS (API PADRÃO)
+// ROTAS API (SUPABASE)
 // ========================
 
-function loadRoute(path, file) {
-    try {
-        app.use(`/api${path}`, require(file))
-        console.log(`✓ rota /api${path} carregada`)
-    } catch (err) {
-        console.log(`✗ erro na rota /api${path}:`, err.message)
-    }
+try {
+    app.use('/api/jogos', require('./routers/jogos'))
+    console.log('✓ /api/jogos carregado')
+} catch (err) {
+    console.log('✗ erro /api/jogos:', err.message)
 }
 
-loadRoute('/selecoes', './routers/selecoes')
-loadRoute('/arbitros', './routers/arbitros')
-loadRoute('/estadios', './routers/estadios')
-loadRoute('/jogos', './routers/jogos')
-loadRoute('/avaliacoes', './routers/avaliacoes')
+try {
+    app.use('/api/selecoes', require('./routers/selecoes'))
+    console.log('✓ /api/selecoes carregado')
+} catch (err) {
+    console.log('✗ erro /api/selecoes:', err.message)
+}
+
+try {
+    app.use('/api/arbitros', require('./routers/arbitros'))
+    console.log('✓ /api/arbitros carregado')
+} catch (err) {
+    console.log('✗ erro /api/arbitros:', err.message)
+}
+
+try {
+    app.use('/api/estadios', require('./routers/estadios'))
+    console.log('✓ /api/estadios carregado')
+} catch (err) {
+    console.log('✗ erro /api/estadios:', err.message)
+}
+
+try {
+    app.use('/api/avaliacoes', require('./routers/avaliacoes'))
+    console.log('✓ /api/avaliacoes carregado')
+} catch (err) {
+    console.log('✗ erro /api/avaliacoes:', err.message)
+}
 
 // ========================
-// TESTE RÁPIDO
-// ========================
-app.get('/api/health', (req, res) => {
-    res.json({
-        status: 'ok',
-        message: 'API funcionando corretamente'
-    })
-})
-
-// ========================
-// ERROR HANDLER
+// ERRO GLOBAL (SEGURANÇA)
 // ========================
 app.use((err, req, res, next) => {
-    console.error('Erro:', err.message)
+    console.error(err)
 
     res.status(500).json({
         erro: 'Erro interno do servidor',
