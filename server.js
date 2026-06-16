@@ -100,7 +100,7 @@ app.get('/api/estadios', async (req, res) => {
 })
 
 // ========================
-// AVALIAÇÕES
+// AVALIAÇÕES (GET)
 // ========================
 app.get('/api/avaliacoes', async (req, res) => {
     const { data, error } = await supabase
@@ -116,18 +116,19 @@ app.get('/api/avaliacoes', async (req, res) => {
     res.json(data)
 })
 
-// ROTA POST: Receber e salvar a avaliação do torcedor
+// ========================
+// AVALIAÇÕES (POST)
+// ========================
 app.post('/api/avaliacoes', async (req, res) => {
     const { arbitroId, nota, comentario, jogoId } = req.body;
 
-    // Validação básica
+    // Validação básica de payload
     if (!arbitroId || !nota) {
         return res.status(400).json({ error: 'O ID do árbitro e a nota são obrigatórios!' });
     }
 
     try {
         // 1. Insere a avaliação na tabela 'avaliacoes'
-        // ATENÇÃO: Ajuste os nomes das colunas ('arbitro_id', 'jogo_id') se no seu banco estiver camelCase
         const { data: novaAvaliacao, error: erroInsercao } = await supabase
             .from('avaliacoes')
             .insert([
@@ -140,50 +141,74 @@ app.post('/api/avaliacoes', async (req, res) => {
             ])
             .select();
 
-        if (erroInsercao) throw erroInsercao;
+        if (erroInsercao) {
+            console.error("Erro ao inserir na tabela 'avaliacoes':", erroInsercao);
+            return res.status(400).json({ error: 'Erro ao inserir avaliação no banco.', details: erroInsercao.message });
+        }
 
-        // 2. Atualiza os dados de média do árbitro na tabela 'arbitros'
-        // Buscamos os valores atuais de votos e total_pontos
+        // 2. Busca o árbitro correspondente para recalcular estatísticas
         const { data: arbitroAtual, error: erroBusca } = await supabase
             .from('arbitros')
-            .select('votos, total_pontos')
+            .select('*')
             .eq('id', parseInt(arbitroId))
-            .single();
+            .maybeSingle();
 
-        if (erroBusca) throw erroBusca;
+        if (erroBusca || !arbitroAtual) {
+            console.error("Erro ao buscar árbitro ou ID inexistente:", erroBusca);
+            return res.status(404).json({ error: 'Árbitro não encontrado para atualização de estatísticas.' });
+        }
 
-        // Calculamos os novos totais acumulados
-        const novosVotos = (arbitroAtual.votos || 0) + 1;
-        const novosPontos = (arbitroAtual.total_pontos || 0) + parseInt(nota);
+        // Mapeamento inteligente para evitar quebras por diferença de camelCase/snake_case nas notas
+        const votosAtuais = arbitroAtual.votos || arbitroAtual.votos_totais || 0;
+        const pontosAtuais = arbitroAtual.total_pontos || arbitroAtual.totalPontos || 0;
 
-        // Salvamos de volta na tabela 'arbitros'
+        const novosVotos = votosAtuais + 1;
+        const novosPontos = pontosAtuais + parseInt(nota);
+
+        // Monta o payload dinamicamente com base nas colunas existentes na sua tabela do Supabase
+        const dadosAtualizacao = {};
+        if ('total_pontos' in arbitroAtual) dadosAtualizacao.total_pontos = novosPontos;
+        else if ('totalPontos' in arbitroAtual) dadosAtualizacao.totalPontos = novosPontos;
+        
+        if ('votos' in arbitroAtual) dadosAtualizacao.votos = novosVotos;
+        else if ('votos_totais' in arbitroAtual) dadosAtualizacao.votos_totais = novosVotos;
+
+        // 3. Atualiza os dados de pontuação na tabela 'arbitros'
         const { error: erroAtualizacao } = await supabase
             .from('arbitros')
-            .update({ 
-                votos: novosVotos, 
-                total_pontos: novosPontos 
-            })
+            .update(dadosAtualizacao)
             .eq('id', parseInt(arbitroId));
 
-        if (erroAtualizacao) throw erroAtualizacao;
+        if (erroAtualizacao) {
+            console.error("Erro ao atualizar dados acumulados do árbitro:", erroAtualizacao);
+            return res.status(400).json({ error: 'Avaliação registrada, mas houve falha ao atualizar a média do árbitro.', details: erroAtualizacao.message });
+        }
 
-        // Retorna sucesso total para o front-end
+        // Retorno de sucesso absoluto para o front-end
         return res.status(201).json({ 
             success: true, 
-            message: 'Avaliação computada com sucesso!',
+            message: 'Avaliação e estatísticas computadas com sucesso!',
             data: novaAvaliacao 
         });
 
     } catch (error) {
-        console.error('Erro na rota /api/avaliacoes:', error);
+        console.error('Erro crítico na execução do POST /api/avaliacoes:', error);
         return res.status(500).json({ 
-            error: 'Erro interno ao salvar no Supabase.', 
+            error: 'Erro interno no servidor ao processar a requisição.', 
             details: error.message 
         });
     }
 });
 
 // ========================
-// EXPORT VERCEL
+// EXPORT VERCEL / LOCAL RUN
 // ========================
-module.exports = app
+module.exports = app;
+
+// Inicia o servidor localmente se executado direto via node (ex: node server.js)
+if (require.main === module) {
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, () => {
+        console.log(`🚀 Servidor rodando localmente na porta http://localhost:${PORT}`);
+    });
+}
