@@ -18,7 +18,6 @@ app.use(cors())
 app.use(express.json())
 app.use(logger)
 
-// Rota principal
 app.get('/', (req, res) => {
     res.status(200).json({
         projeto: 'Central do Apito',
@@ -27,15 +26,12 @@ app.get('/', (req, res) => {
     })
 })
 
-// Rotas
 app.use('/selecoes', selecoesRouter)
 app.use('/arbitros', arbitrosRouter)
 app.use('/estadios', estadiosRouter)
 app.use('/jogos', jogosRouter)
 app.use('/avaliacoes', avaliacoesRouter)
 
-// Tratamento de erros
 app.use(errorHandler)
 
-// IMPORTANTE PARA VERCEL
 module.exports = app
