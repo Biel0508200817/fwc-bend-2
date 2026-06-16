@@ -6,20 +6,18 @@ const cors = require('cors')
 const app = express()
 
 // ========================
-// MIDDLEWARES BÁSICOS
+// MIDDLEWARES
 // ========================
 app.use(cors())
 app.use(express.json())
 
-// ========================
-// LOGGER (opcional e seguro)
-// ========================
+// Logger opcional
 try {
     const logger = require('./middleware/logger')
     app.use(logger)
     console.log('✓ logger carregado')
 } catch (err) {
-    console.log('⚠ logger não carregado:', err.message)
+    console.log('⚠ logger não carregado')
 }
 
 // ========================
@@ -34,53 +32,45 @@ app.get('/', (req, res) => {
 })
 
 // ========================
-// FUNÇÃO SEGURA DE ROTAS
+// ROTAS (API PADRÃO)
 // ========================
-function safeUse(path, file) {
+
+function loadRoute(path, file) {
     try {
-        const route = require(file)
-        app.use(path, route)
-        console.log(`✓ rota ${path} carregada`)
+        app.use(`/api${path}`, require(file))
+        console.log(`✓ rota /api${path} carregada`)
     } catch (err) {
-        console.log(`✗ erro na rota ${path}:`, err.message)
+        console.log(`✗ erro na rota /api${path}:`, err.message)
     }
 }
 
-// ========================
-// ROTAS DA API
-// ========================
-safeUse('/selecoes', './routers/selecoes')
-safeUse('/arbitros', './routers/arbitros')
-safeUse('/estadios', './routers/estadios')
-safeUse('/jogos', './routers/jogos')
-safeUse('/avaliacoes', './routers/avaliacoes')
+loadRoute('/selecoes', './routers/selecoes')
+loadRoute('/arbitros', './routers/arbitros')
+loadRoute('/estadios', './routers/estadios')
+loadRoute('/jogos', './routers/jogos')
+loadRoute('/avaliacoes', './routers/avaliacoes')
 
 // ========================
-// TESTE DIRETO (debug)
+// TESTE RÁPIDO
 // ========================
-app.get('/jogos-test', (req, res) => {
+app.get('/api/health', (req, res) => {
     res.json({
-        ok: true,
-        mensagem: 'rota /jogos-test funcionando'
+        status: 'ok',
+        message: 'API funcionando corretamente'
     })
 })
 
 // ========================
 // ERROR HANDLER
 // ========================
-try {
-    const errorHandler = require('./middleware/errorHandler')
-    app.use(errorHandler)
-    console.log('✓ errorHandler carregado')
-} catch (err) {
-    console.log('⚠ errorHandler não carregado:', err.message)
+app.use((err, req, res, next) => {
+    console.error('Erro:', err.message)
 
-    app.use((err, req, res, next) => {
-        res.status(500).json({
-            erro: err.message || 'Erro interno'
-        })
+    res.status(500).json({
+        erro: 'Erro interno do servidor',
+        detalhe: err.message
     })
-}
+})
 
 // ========================
 // EXPORT VERCEL
