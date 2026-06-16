@@ -3,75 +3,22 @@ require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
 
-// Middleware (com proteção contra crash)
-let logger
-let errorHandler
-
-try {
-    logger = require('./middleware/logger')
-    console.log('✓ logger carregado')
-} catch (err) {
-    console.error('✗ erro logger:', err.message)
-    logger = (req, res, next) => next()
-}
-
-try {
-    errorHandler = require('./middleware/errorHandler')
-    console.log('✓ errorHandler carregado')
-} catch (err) {
-    console.error('✗ erro errorHandler:', err.message)
-    errorHandler = (err, req, res, next) => {
-        res.status(500).json({ erro: 'Erro interno' })
-    }
-}
-
-// Routers (com proteção contra crash)
-let selecoesRouter, arbitrosRouter, estadiosRouter, jogosRouter, avaliacoesRouter
-
-try {
-    selecoesRouter = require('./routers/selecoes')
-    console.log('✓ selecoes OK')
-} catch (err) {
-    console.error('✗ selecoes erro:', err.message)
-}
-
-try {
-    arbitrosRouter = require('./routers/arbitros')
-    console.log('✓ arbitros OK')
-} catch (err) {
-    console.error('✗ arbitros erro:', err.message)
-}
-
-try {
-    estadiosRouter = require('./routers/estadios')
-    console.log('✓ estadios OK')
-} catch (err) {
-    console.error('✗ estadios erro:', err.message)
-}
-
-try {
-    jogosRouter = require('./routers/jogos')
-    console.log('✓ jogos OK')
-} catch (err) {
-    console.error('✗ jogos erro:', err.message)
-}
-
-try {
-    avaliacoesRouter = require('./routers/avaliacoes')
-    console.log('✓ avaliacoes OK')
-} catch (err) {
-    console.error('✗ avaliacoes erro:', err.message)
-}
-
 const app = express()
 
+// Middlewares básicos
 app.use(cors())
 app.use(express.json())
 
-// Logger seguro
-if (logger) app.use(logger)
+// Middleware: logger (seguro)
+try {
+    const logger = require('./middleware/logger')
+    app.use(logger)
+    console.log('✓ logger carregado')
+} catch (err) {
+    console.log('⚠ logger não carregado:', err.message)
+}
 
-// Rota principal (OK na Vercel)
+// ROTA PRINCIPAL
 app.get('/', (req, res) => {
     res.status(200).json({
         projeto: 'Central do Apito',
@@ -80,15 +27,39 @@ app.get('/', (req, res) => {
     })
 })
 
-// Rotas (somente se carregaram)
-if (selecoesRouter) app.use('/selecoes', selecoesRouter)
-if (arbitrosRouter) app.use('/arbitros', arbitrosRouter)
-if (estadiosRouter) app.use('/estadios', estadiosRouter)
-if (jogosRouter) app.use('/jogos', jogosRouter)
-if (avaliacoesRouter) app.use('/avaliacoes', avaliacoesRouter)
+// ========================
+// ROTAS (com proteção contra crash)
+// ========================
 
-// Error handler no final
-app.use(errorHandler)
+function safeUse(path, file) {
+    try {
+        app.use(path, require(file))
+        console.log(`✓ rota ${path} carregada`)
+    } catch (err) {
+        console.log(`✗ erro na rota ${path}:`, err.message)
+    }
+}
 
-// IMPORTANTE: VERCEL SERVERLESS
+safeUse('/selecoes', './routers/selecoes')
+safeUse('/arbitros', './routers/arbitros')
+safeUse('/estadios', './routers/estadios')
+safeUse('/jogos', './routers/jogos')
+safeUse('/avaliacoes', './routers/avaliacoes')
+
+// Middleware de erro (seguro)
+try {
+    const errorHandler = require('./middleware/errorHandler')
+    app.use(errorHandler)
+    console.log('✓ errorHandler carregado')
+} catch (err) {
+    console.log('⚠ errorHandler não carregado:', err.message)
+
+    app.use((err, req, res, next) => {
+        res.status(500).json({
+            erro: err.message || 'Erro interno'
+        })
+    })
+}
+
+// EXPORT PARA VERCEL (OBRIGATÓRIO)
 module.exports = app
