@@ -1,16 +1,16 @@
-require('dotenv').config()
+require('dotenv').config();
 
-const express = require('express')
-const cors = require('cors')
-const { createClient } = require('@supabase/supabase-js')
+const express = require('express');
+const cors = require('cors');
+const { createClient } = require('@supabase/supabase-js');
 
-const app = express()
+const app = express();
 
 // ========================
 // MIDDLEWARES
 // ========================
-app.use(cors())
-app.use(express.json())
+app.use(cors());
+app.use(express.json());
 
 // ========================
 // SUPABASE CONFIG
@@ -18,7 +18,7 @@ app.use(express.json())
 const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_KEY
-)
+);
 
 // ========================
 // ROTA PRINCIPAL
@@ -28,8 +28,8 @@ app.get('/', (req, res) => {
         status: 'online',
         projeto: 'Central do Apito',
         versao: '1.0.0'
-    })
-})
+    });
+});
 
 // ========================
 // JOGOS (READ - SUPABASE)
@@ -37,16 +37,14 @@ app.get('/', (req, res) => {
 app.get('/api/jogos', async (req, res) => {
     const { data, error } = await supabase
         .from('jogos')
-        .select('*')
+        .select('*');
 
     if (error) {
-        return res.status(400).json({
-            erro: error.message
-        })
+        return res.status(400).json({ erro: error.message });
     }
 
-    res.json(data)
-})
+    res.json(data);
+});
 
 // ========================
 // SELEÇÕES
@@ -54,16 +52,14 @@ app.get('/api/jogos', async (req, res) => {
 app.get('/api/selecoes', async (req, res) => {
     const { data, error } = await supabase
         .from('selecoes')
-        .select('*')
+        .select('*');
 
     if (error) {
-        return res.status(400).json({
-            erro: error.message
-        })
+        return res.status(400).json({ erro: error.message });
     }
 
-    res.json(data)
-})
+    res.json(data);
+});
 
 // ========================
 // ÁRBITROS
@@ -71,16 +67,14 @@ app.get('/api/selecoes', async (req, res) => {
 app.get('/api/arbitros', async (req, res) => {
     const { data, error } = await supabase
         .from('arbitros')
-        .select('*')
+        .select('*');
 
     if (error) {
-        return res.status(400).json({
-            erro: error.message
-        })
+        return res.status(400).json({ erro: error.message });
     }
 
-    res.json(data)
-})
+    res.json(data);
+});
 
 // ========================
 // ESTÁDIOS
@@ -88,16 +82,14 @@ app.get('/api/arbitros', async (req, res) => {
 app.get('/api/estadios', async (req, res) => {
     const { data, error } = await supabase
         .from('estadios')
-        .select('*')
+        .select('*');
 
     if (error) {
-        return res.status(400).json({
-            erro: error.message
-        })
+        return res.status(400).json({ erro: error.message });
     }
 
-    res.json(data)
-})
+    res.json(data);
+});
 
 // ========================
 // AVALIAÇÕES (GET)
@@ -105,37 +97,33 @@ app.get('/api/estadios', async (req, res) => {
 app.get('/api/avaliacoes', async (req, res) => {
     const { data, error } = await supabase
         .from('avaliacoes')
-        .select('*')
+        .select('*');
 
     if (error) {
-        return res.status(400).json({
-            erro: error.message
-        })
+        return res.status(400).json({ erro: error.message });
     }
 
-    res.json(data)
-})
+    res.json(data);
+});
 
 // ========================
-// AVALIAÇÕES (POST)
+// AVALIAÇÕES E ATUALIZAÇÃO DO ÁRBITRO (POST)
 // ========================
 app.post('/api/avaliacoes', async (req, res) => {
-    const { arbitroId, nota, comentario, jogoId } = req.body;
+    // Recebe os dados do front-end
+    const { arbitroId, nota, comentario, amarelos, vermelhos } = req.body;
 
-    // Validação básica de payload
     if (!arbitroId || !nota) {
         return res.status(400).json({ error: 'O ID do árbitro e a nota são obrigatórios!' });
     }
 
     try {
-        // 1. Insere a avaliação na tabela 'avaliacoes'
+        // 1. Grava a nova avaliação (Removemos a coluna jogo_id que não existe no Supabase)
         const { data: novaAvaliacao, error: erroInsercao } = await supabase
             .from('avaliacoes')
             .insert([
                 {
                     arbitro_id: parseInt(arbitroId), 
-                    // 👇 A CORREÇÃO ESTÁ AQUI: Removemos o parseInt do jogoId porque ele é texto ("M1")
-                    jogo_id: jogoId || null, 
                     nota: parseInt(nota),
                     comentario: comentario || ''
                 }
@@ -147,7 +135,7 @@ app.post('/api/avaliacoes', async (req, res) => {
             return res.status(400).json({ error: 'Erro ao inserir avaliação no banco.', details: erroInsercao.message });
         }
 
-        // 2. Busca o árbitro correspondente para recalcular estatísticas
+        // 2. Busca os dados atuais do árbitro para somar
         const { data: arbitroAtual, error: erroBusca } = await supabase
             .from('arbitros')
             .select('*')
@@ -155,47 +143,41 @@ app.post('/api/avaliacoes', async (req, res) => {
             .maybeSingle();
 
         if (erroBusca || !arbitroAtual) {
-            console.error("Erro ao buscar árbitro ou ID inexistente:", erroBusca);
-            return res.status(404).json({ error: 'Árbitro não encontrado para atualização de estatísticas.' });
+            console.error("Erro ao buscar árbitro:", erroBusca);
+            return res.status(404).json({ error: 'Árbitro não encontrado.' });
         }
 
-        // Mapeamento inteligente para evitar quebras por diferença de camelCase/snake_case nas notas
-        const votosAtuais = arbitroAtual.votos || arbitroAtual.votos_totais || 0;
-        const pontosAtuais = arbitroAtual.total_pontos || arbitroAtual.totalPontos || 0;
+        // 3. Faz o cálculo matemático somando o que já tem com o novo jogo
+        const dadosAtualizacao = {
+            total_pontos: (arbitroAtual.total_pontos || 0) + parseInt(nota),
+            votos: (arbitroAtual.votos || 0) + 1,
+            jogos: (arbitroAtual.jogos || 0) + 1,
+            amarelos: (arbitroAtual.amarelos || 0) + parseInt(amarelos || 0),
+            vermelhos: (arbitroAtual.vermelhos || 0) + parseInt(vermelhos || 0)
+        };
 
-        const novosVotos = votosAtuais + 1;
-        const novosPontos = pontosAtuais + parseInt(nota);
-
-        // Monta o payload dinamicamente com base nas colunas existentes na sua tabela do Supabase
-        const dadosAtualizacao = {};
-        if ('total_pontos' in arbitroAtual) dadosAtualizacao.total_pontos = novosPontos;
-        else if ('totalPontos' in arbitroAtual) dadosAtualizacao.totalPontos = novosPontos;
-        
-        if ('votos' in arbitroAtual) dadosAtualizacao.votos = novosVotos;
-        else if ('votos_totais' in arbitroAtual) dadosAtualizacao.votos_totais = novosVotos;
-
-        // 3. Atualiza os dados de pontuação na tabela 'arbitros'
+        // 4. Salva os dados atualizados na tabela do árbitro
         const { error: erroAtualizacao } = await supabase
             .from('arbitros')
             .update(dadosAtualizacao)
             .eq('id', parseInt(arbitroId));
 
         if (erroAtualizacao) {
-            console.error("Erro ao atualizar dados acumulados do árbitro:", erroAtualizacao);
-            return res.status(400).json({ error: 'Avaliação registrada, mas houve falha ao atualizar a média do árbitro.', details: erroAtualizacao.message });
+            console.error("Erro ao atualizar dados do árbitro:", erroAtualizacao);
+            return res.status(400).json({ error: 'Avaliação salva, mas erro ao atualizar estatísticas do árbitro.', details: erroAtualizacao.message });
         }
 
-        // Retorno de sucesso absoluto para o front-end
+        // Devolve sucesso absoluto para a sua tela
         return res.status(201).json({ 
             success: true, 
-            message: 'Avaliação e estatísticas computadas com sucesso!',
+            message: 'Tudo perfeito! Avaliação gravada e árbitro atualizado.',
             data: novaAvaliacao 
         });
 
     } catch (error) {
-        console.error('Erro crítico na execução do POST /api/avaliacoes:', error);
+        console.error('Erro crítico no POST:', error);
         return res.status(500).json({ 
-            error: 'Erro interno no servidor ao processar a requisição.', 
+            error: 'Erro interno no servidor.', 
             details: error.message 
         });
     }
@@ -206,7 +188,6 @@ app.post('/api/avaliacoes', async (req, res) => {
 // ========================
 module.exports = app;
 
-// Inicia o servidor localmente se executado direto via node (ex: node server.js)
 if (require.main === module) {
     const PORT = process.env.PORT || 3000;
     app.listen(PORT, () => {
