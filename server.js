@@ -133,8 +133,9 @@ app.post('/api/avaliacoes', async (req, res) => {
             .from('avaliacoes')
             .insert([
                 {
-                    arbitro_id: parseInt(arbitroId),
-                    jogo_id: jogoId ? parseInt(jogoId) : null,
+                    arbitro_id: parseInt(arbitroId), 
+                    // 👇 A CORREÇÃO ESTÁ AQUI: Removemos o parseInt do jogoId porque ele é texto ("M1")
+                    jogo_id: jogoId || null, 
                     nota: parseInt(nota),
                     comentario: comentario || ''
                 }
